@@ -84,6 +84,27 @@ def fitting_eq3(t,kappa,l,nc,n2,y0,yend):
     y = (yend - y0) * (1 - (temp_y * np.exp(-kinf * t))) + y0
     return y
 
+def parse_limits(text):
+    """
+    Parse a string like "1,5", "1 - 5", or "1-5" into (min, max).
+    Returns None if invalid.
+    """
+    if not text:
+        return None
+    try:
+        # Replace hyphen with comma if it's being used as a range
+        # (but keep negative numbers intact)
+        cleaned = text.replace(" ", "")
+        if "-" in cleaned[1:]:  # skip the first char so "-5,10" still works
+            cleaned = cleaned.replace("-", ",", 1)  # only replace first hyphen
+        parts = cleaned.split(",")
+        if len(parts) != 2:
+            return None
+        return tuple(map(float, parts))
+    except ValueError:
+        print("⚠️ Invalid limits. Use format: min,max or min-max")
+        return None
+
 # ------------------------------------------------------------
 
 def back_to_data_selection():
@@ -463,7 +484,15 @@ def plot_last_selected():
         if normalise_choice == "Local":
             sub_df = normalise_data(sub_df)
 
-        label = f"{protein_name} {protein_conc}µM ({well})"
+        # Making legend customisable to user input
+        if protein_name.strip() == "" and protein_conc.strip() == "":
+            label = f"{well}"
+        elif protein_name.strip() == "":
+            label = f"{protein_conc}µM ({well})"
+        elif protein_conc.strip() == "":
+            label = f"{protein_name} ({well})"
+        else:
+            label = f"{protein_name} {protein_conc}µM ({well})"
 
         x = sub_df[time_label].values
         y = sub_df['Fluorescence'].values
@@ -483,8 +512,24 @@ def plot_last_selected():
 
         make_fit_data(well, x, y)
 
-    plt.xlabel(time_label, fontsize = 24)
-    plt.ylabel("Fluorescence", fontsize = 24)
+    # Making plot customisable using user input
+    x_label = xlab_entry.get() if xlab_entry.get().strip() else time_label
+    y_label = ylab_entry.get() if ylab_entry.get().strip() else "Fluorescence"
+
+    plt.xlabel(x_label, fontsize = 24)
+    plt.ylabel(y_label, fontsize = 24)
+
+    # Grab limits (if provided, split by comma or dash)
+    xlim_text = xlim_entry.get().strip()
+    ylim_text = ylim_entry.get().strip()
+
+    xlim_vals = parse_limits(xlim_text)
+    ylim_vals = parse_limits(ylim_text)
+    if xlim_vals:
+        plt.xlim(*xlim_vals)
+    if ylim_vals:
+        plt.ylim(*ylim_vals)
+
     plt.tick_params(axis="both", labelsize = 18)
     # Enable minor ticks
     ax = plt.gca()  # get current axes
@@ -569,9 +614,28 @@ def plot_all_selected():
 
             make_fit_data(well, x, y)
 
-    plt.xlabel(time_label, fontsize = 24)
-    plt.ylabel("Fluorescence", fontsize = 24)
+    # Making plot customisable using user input
+    x_label = xlab_entry.get() if xlab_entry.get().strip() else time_label
+    y_label = ylab_entry.get() if ylab_entry.get().strip() else "Fluorescence"
+
+    plt.xlabel(x_label, fontsize = 24)
+    plt.ylabel(y_label, fontsize = 24)
+
+    # Grab limits (if provided, split by comma or dash)
+    xlim_text = xlim_entry.get().strip()
+    ylim_text = ylim_entry.get().strip()
+
+    xlim_vals = parse_limits(xlim_text)
+    ylim_vals = parse_limits(ylim_text)
+    if xlim_vals:
+        plt.xlim(*xlim_vals)
+    if ylim_vals:
+        plt.ylim(*ylim_vals)
+
     plt.tick_params(axis="both", labelsize = 18)
+    # Enable minor ticks
+    ax = plt.gca()  # get current axes
+    ax.minorticks_on()
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
     plt.tight_layout()
     plt.show()
@@ -697,11 +761,11 @@ input_frame = tk.Frame(main_frame)
 input_frame.grid(row=0, column=0, columnspan=12, pady=10)
 
 tk.Label(input_frame, text="Protein Name:").grid(row=0, column=0, sticky="e")
-protein_name_entry = tk.Entry(input_frame, width=15)
+protein_name_entry = tk.Entry(input_frame, width=10)
 protein_name_entry.grid(row=0, column=1, padx=5)
 
 tk.Label(input_frame, text="Protein Concentration (µM):").grid(row=0, column=2, sticky="e")
-protein_concentration_entry = tk.Entry(input_frame, width=5)
+protein_concentration_entry = tk.Entry(input_frame, width=10)
 protein_concentration_entry.grid(row=0, column=3, padx=5)
 
 # Variable to store selected palette
@@ -747,6 +811,27 @@ normalise_label.grid(row=0, column=10, padx=5)
 normalise_dropdown = ttk.Combobox(input_frame, textvariable=normalise_var, state="readonly", width=7)
 normalise_dropdown['values'] = ("none", "Global", "Local")
 normalise_dropdown.grid(row=0, column=11, padx=5)
+
+
+
+tk.Label(input_frame, text="X-axis Label:").grid(row=1, column=0, sticky="e")
+xlab_entry = tk.Entry(input_frame, width=10)
+xlab_entry.grid(row=1, column=1, padx=5)
+
+tk.Label(input_frame, text="X-axis Limits:").grid(row=2, column=0, sticky="e")
+xlim_entry = tk.Entry(input_frame, width=10)
+xlim_entry.grid(row=2, column=1, padx=5)
+
+tk.Label(input_frame, text="Y-axis Label:").grid(row=1, column=2, sticky="e")
+ylab_entry = tk.Entry(input_frame, width=10)
+ylab_entry.grid(row=1, column=3, padx=5)
+
+tk.Label(input_frame, text="Y-axis Limits:").grid(row=2, column=2, sticky="e")
+ylim_entry = tk.Entry(input_frame, width=10)
+ylim_entry.grid(row=2, column=3, padx=5)
+
+
+
 
 # ----------------------------------------------------------
 # Assigning well buttons and placing them in their own frame
