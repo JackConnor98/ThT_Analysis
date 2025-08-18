@@ -12,6 +12,8 @@ import math
 ### Features to add: ###
 # Selectable fit equations
 # Option to limit the x-axis
+# Control axis labels
+# Control what is included in the legend
 # Click and drag to select wells
 # ------------------------------------------------------------
 
@@ -22,6 +24,7 @@ data_columns = ["protein", "conc", "wells"]
 df = pd.DataFrame(columns=data_columns)
 #fit_data = pd.DataFrame(columns=["Well", "t50"])
 fit_data = pd.DataFrame()
+time_label = None
 flatliners = []
 selected_wells = []
 selections = []
@@ -206,6 +209,8 @@ def choose_data_file():
 
 def read_data(file_path):
 
+    global time_label
+
     # Read the entire sheet first to find headers
     temp_df = pd.read_excel(file_path, header=None)
     
@@ -235,14 +240,17 @@ def read_data(file_path):
     # Melt wide to long
     df_long = df.melt(id_vars=meta_cols, var_name='measurement', value_name='value')
 
+    # Detect the time column, whatever its unit (h or s)
+    time_label = df_long.loc[df_long['Content'].str.startswith("Time"), 'Content'].unique()[0]
+
     # Extract the Time mapping
-    time_map = df_long[df_long['Content'] == 'Time [h]'][['measurement', 'value']].set_index('measurement')['value']
+    time_map = df_long[df_long['Content'] == time_label][['measurement', 'value']].set_index('measurement')['value']
 
     # Remove the Time row
-    df_long = df_long[df_long['Content'] != 'Time [h]']
+    df_long = df_long[df_long['Content'] != time_label]
 
-    # Add Time column
-    df_long['Time [h]'] = df_long['measurement'].map(time_map)
+    # Add Time column with the actual label
+    df_long[time_label] = df_long['measurement'].map(time_map)
 
     # Final tidy dataframe: one row per well, time, and sample
     df_tidy = df_long.drop(columns=['measurement']).rename(columns={'Content': 'Sample', 'value': 'Fluorescence'})
@@ -403,7 +411,7 @@ def make_fit_data(well, x, y):
     update_fit_parameters_display()
 
 def plot_last_selected():
-    global df_tidy, fit_data
+    global df_tidy, fit_data, time_label
     
     if df_tidy is None:
         print("No data loaded yet!")
@@ -457,7 +465,7 @@ def plot_last_selected():
 
         label = f"{protein_name} {protein_conc}µM ({well})"
 
-        x = sub_df['Time [h]'].values
+        x = sub_df[time_label].values
         y = sub_df['Fluorescence'].values
 
         # Plot raw data
@@ -475,7 +483,7 @@ def plot_last_selected():
 
         make_fit_data(well, x, y)
 
-    plt.xlabel("Time [h]", fontsize = 24)
+    plt.xlabel(time_label, fontsize = 24)
     plt.ylabel("Fluorescence", fontsize = 24)
     plt.tick_params(axis="both", labelsize = 18)
     # Enable minor ticks
@@ -543,7 +551,7 @@ def plot_all_selected():
             if normalise_choice == "Local":
                 sub_df = normalise_data(sub_df)
 
-            x = sub_df['Time [h]'].values
+            x = sub_df[time_label].values
             y = sub_df['Fluorescence'].values
 
             # Plot raw data
@@ -561,7 +569,7 @@ def plot_all_selected():
 
             make_fit_data(well, x, y)
 
-    plt.xlabel("Time [h]", fontsize = 24)
+    plt.xlabel(time_label, fontsize = 24)
     plt.ylabel("Fluorescence", fontsize = 24)
     plt.tick_params(axis="both", labelsize = 18)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
