@@ -2,6 +2,10 @@
 
 ### Author: Jack P Connor
 
+## Intallation
+All the required dependancies can be installed with the following line:
+pip install tkinter pandas matplotlib numpy scipy math
+
 ## General Overview
 This code uses TKinter to create a GUI built for analysing ThT assays using data directly from a plate reader as the input.
 First, select which data you would like to analyse and it will bring you to the analysis screen. 
@@ -10,10 +14,18 @@ You are then able to specify how you want the results to be plotted including no
 From the GUI you can directly save plots, save the raw data in a tidy format and save the calculated fit parameters.
 
 ## Example Usage
+The first screen asks for you to select the data you wish to analyse.
+
+![Load Data](Figures/load_data.png)
+
+This script has been designed to work with .xlsx files taken directly from the plate reader
+
+![Example Data](Figures/example_data.png)
+
 After selecting the data you wish to analyse, you are brought to the main analysis window. Here you are able to select the wells you wish to analyse and change a variety of parameters:
 * Protein name
 * Protein concentration
-* Fit equations
+* Fit equations (Not fully implemented yet)
 * Global, local or no normalisation
 * Plot labes, axis limits and colour palette
 
@@ -27,7 +39,7 @@ The selected wells can be visualised by pressing "Plot Last" which plots the wel
 
 This process is then repeated for a second selection which is given another protein name but no specified concentration.
 ![Second Selection](Figures/second_selection.png)
-![](Figures/second_plot.png)
+![Second Plot](Figures/second_plot.png)
 
 After you have finished selecting all the wells of interest, you are able to use the "Plot All" button to plot all the selected groups together.
 
