@@ -4,7 +4,7 @@
 
 ## Intallation
 All the required dependancies can be installed with the following line:
-pip install tkinter pandas matplotlib numpy scipy math
+`pip install tkinter pandas matplotlib numpy scipy math`
 
 ## General Overview
 This code uses TKinter to create a GUI built for analysing ThT assays using data directly from a plate reader as the input.
