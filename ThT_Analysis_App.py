@@ -316,11 +316,14 @@ def calculate_t50(x, y):
 
 def calculate_tmax(x, y):
     max_y = y.max()
-    tmax = x[np.where(y == max_y)[0][0]]
+    tmax = x[np.where(y >= max_y)[0][0]]
 
     return tmax
 
 def calculate_tlag(x, y, t50):
+
+    # Here tlag is calculated by fitting a sigmoid function to the data
+    # This approach was taken from: https://doi.org/10.1080/13506129.2017.1304905
 
     def sigmoid(t, yi, yf, t50, tau):
         return yi + (yf - yi) / (1 + np.exp(-(t - t50)/tau))
@@ -584,7 +587,17 @@ def plot_all_selected():
         protein_conc = row["conc"]
         colour = row_colours[idx]
 
-        label = f"{protein_name} {protein_conc}µM"
+        #label = f"{protein_name} {protein_conc}µM"
+
+        # Making legend customisable to user input
+        if protein_name.strip() == "" and protein_conc.strip() == "":
+            label = f"Group {idx + 1}"
+        elif protein_name.strip() == "":
+            label = f"{protein_conc}µM"
+        elif protein_conc.strip() == "":
+            label = f"{protein_name}"
+        else:
+            label = f"{protein_name} {protein_conc}µM"
 
         # Plot all wells in this row with the same colour and label
         for well in wells:
