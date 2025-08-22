@@ -7,6 +7,7 @@ import matplotlib.cm as cm
 import numpy as np
 from scipy.optimize import curve_fit
 import math
+import re
 
 # ------------------------------------------------------------
 ### Features to add: ###
@@ -228,6 +229,30 @@ def choose_data_file():
             print(f"Error loading file: {e}")
             return
 
+
+def time_to_hours(t):
+    """
+    Convert strings like '0 h 8 min' or '2 h' or '45 min' to hours (float).
+    """
+    if pd.isna(t):  # in case of NaN
+        return None
+    
+    text = str(t).lower().strip()
+    hours = 0
+    minutes = 0
+    
+    # extract hours
+    h_match = re.search(r'(\d+)\s*h', text)
+    if h_match:
+        hours = int(h_match.group(1))
+    
+    # extract minutes
+    m_match = re.search(r'(\d+)\s*min', text)
+    if m_match:
+        minutes = int(m_match.group(1))
+    
+    return hours + minutes/60.0
+
 def read_data(file_path):
 
     global time_label
@@ -278,6 +303,10 @@ def read_data(file_path):
     
     # Create Well identifier
     df_tidy['Well'] = df_tidy['Well Row'].astype(str).str.strip() + df_tidy['Well Col'].astype(int).astype(str)
+
+    # Convert time to hours
+    if df_tidy[time_label].astype(str).str.contains(r'(h|min)', case=False).any():
+        df_tidy[time_label] = df_tidy[time_label].apply(time_to_hours)
 
     # Identify flatliners to avoid fitting them
     find_flatliners(df_tidy)
