@@ -379,7 +379,7 @@ def fit_curve(well, x, y):
     # Check if well is a flatliner
     if well in flatliners:
         print(f"Curve Fit -- Skipping flatliner well: {well}")
-        return np.array([]), np.array([])
+        return np.array([]), np.array([]), np.array([])
     else:
         print(f"Fitting data for well: {well}")
 
@@ -413,14 +413,14 @@ def fit_curve(well, x, y):
             except Exception as e:
                 print(f"Could not fit data for well {well}: {e}")
 
-                return np.array([]), np.array([])
+                return np.array([]), np.array([]), np.array([])
             
         if equation == "2":
 
             try:            
                 print("Equation 2: Not implemented Yet")
 
-                return np.array([]), np.array([])
+                return np.array([]), np.array([]), np.array([])
 
             except Exception as e:
                 print(f"Could not fit data for well {well}: {e}")
