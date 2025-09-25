@@ -12,10 +12,9 @@ import re
 # ------------------------------------------------------------
 ### Features to add: ###
 # Selectable fit equations
-# Option to limit the x-axis
-# Control axis labels
-# Control what is included in the legend
 # Click and drag to select wells
+# Make tmax use the sigmoid
+# Be able to load multiple plate and handle normalisation seperately
 # ------------------------------------------------------------
 
 # ------------------------------------------------------------
@@ -229,7 +228,6 @@ def choose_data_file():
             print(f"Error loading file: {e}")
             return
 
-
 def time_to_hours(t):
     """
     Convert strings like '0 h 8 min' or '2 h' or '45 min' to hours (float).
@@ -368,6 +366,9 @@ def calculate_tlag(x, y, t50):
      # Calculate tlag
     tlag = t50_fit - 2*tau_fit
 
+    ymax = yf_fit  # maximum value of sigmoid
+
+    #return tlag, ymax
     return tlag
 
 def fit_curve(well, x, y):
@@ -407,7 +408,7 @@ def fit_curve(well, x, y):
                 x_fit = np.linspace(x.min(), x.max(), 200)
                 y_fit = fitting_eq1(x_fit, *popx)
 
-                return x_fit, y_fit
+                return x_fit, y_fit, popx
 
             except Exception as e:
                 print(f"Could not fit data for well {well}: {e}")
@@ -424,19 +425,19 @@ def fit_curve(well, x, y):
             except Exception as e:
                 print(f"Could not fit data for well {well}: {e}")
 
-                return np.array([]), np.array([])
+                return np.array([]), np.array([]), np.array([])
             
         if equation == "3":
 
             try:
                 print("Equation 3: Not implemented Yet")
 
-                return np.array([]), np.array([])
+                return np.array([]), np.array([]), np.array([])
 
             except Exception as e:
                 print(f"Could not fit data for well {well}: {e}")
 
-                return np.array([]), np.array([])
+                return np.array([]), np.array([]), np.array([])
 
 def make_fit_data(well, x, y):
     global fit_data, flatliners
@@ -460,6 +461,35 @@ def make_fit_data(well, x, y):
                 tlag = calculate_tlag(x, y, t50)
                 
                 fit_data.loc[len(fit_data)] = [well, t50, tmax, tlag]
+
+    if equation == "1":
+        if fit_data.empty:
+            fit_data = pd.DataFrame(columns=["Well", "l", "k", "th", "y0", "yend", "t50", "tmax", "tlag"])
+
+        # Check if well is a flatliner
+        if well in flatliners:
+            fit_data.loc[len(fit_data)] = [well, "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+        else:
+            if well not in fit_data["Well"].values:
+                try:
+                    # Fit the curve to get parameters
+                    _, _, popx = fit_curve(well, x, y)
+
+                    l, k, th, y0_fit, yend_fit = popx
+
+                    # Calculate t50, tmax and tlag from fitted curve
+                    x_fit = np.linspace(x.min(), x.max(), 200)
+                    y_fit = fitting_eq1(x_fit, *popx)
+
+                    t50 = calculate_t50(x_fit, y_fit)
+                    tmax = calculate_tmax(x_fit, y_fit)
+                    tlag = calculate_tlag(x_fit, y_fit, t50)
+
+                    fit_data.loc[len(fit_data)] = [well, l, k, th, y0_fit, yend_fit, t50, tmax, tlag]
+
+                except Exception as e:
+                    print(f"Could not fit data for well {well}: {e}")
+                    fit_data.loc[len(fit_data)] = [well, "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
                         
     update_fit_parameters_display()
 
@@ -536,7 +566,7 @@ def plot_last_selected():
         equation = equation_var.get()
 
         if equation != "none":
-            x_fit, y_fit = fit_curve(well, x, y)
+            x_fit, y_fit, _ = fit_curve(well, x, y)
 
             if x_fit.size > 0 and y_fit.size > 0:
                 # Plot fitted curve with a dashed line and same colour but label it as fit
@@ -551,12 +581,20 @@ def plot_last_selected():
     plt.xlabel(x_label, fontsize = 24)
     plt.ylabel(y_label, fontsize = 24)
 
+    # Handling axis limits
+    
     # Grab limits (if provided, split by comma or dash)
     xlim_text = xlim_entry.get().strip()
     ylim_text = ylim_entry.get().strip()
 
     xlim_vals = parse_limits(xlim_text)
     ylim_vals = parse_limits(ylim_text)
+    
+    # If normalised, set y limits to 0-1 if not specified
+    if normalise_choice in ("Global", "Local"):
+        if not ylim_vals:
+            plt.ylim(0, 1)
+
     if xlim_vals:
         plt.xlim(*xlim_vals)
     if ylim_vals:
@@ -648,7 +686,7 @@ def plot_all_selected():
             equation = equation_var.get()
 
             if equation != "none":
-                x_fit, y_fit = fit_curve(well, x, y)
+                x_fit, y_fit, _ = fit_curve(well, x, y)
 
                 if x_fit.size > 0 and y_fit.size > 0:
                     # Plot fitted curve with a dashed line and same colour but label it as fit
@@ -663,12 +701,20 @@ def plot_all_selected():
     plt.xlabel(x_label, fontsize = 24)
     plt.ylabel(y_label, fontsize = 24)
 
+    # Handling axis limits
+    
     # Grab limits (if provided, split by comma or dash)
     xlim_text = xlim_entry.get().strip()
     ylim_text = ylim_entry.get().strip()
 
     xlim_vals = parse_limits(xlim_text)
     ylim_vals = parse_limits(ylim_text)
+    
+    # If normalised, set y limits to 0-1 if not specified
+    if normalise_choice in ("Global", "Local"):
+        if not ylim_vals:
+            plt.ylim(0, 1)
+
     if xlim_vals:
         plt.xlim(*xlim_vals)
     if ylim_vals:
