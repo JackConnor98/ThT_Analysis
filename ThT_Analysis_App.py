@@ -236,20 +236,30 @@ def time_to_hours(t):
         return None
     
     text = str(t).lower().strip()
+    
+    if not re.search(r'\d', text):  # no digits at all
+        return None
+    
     hours = 0
     minutes = 0
     
-    # extract hours
-    h_match = re.search(r'(\d+)\s*h', text)
-    if h_match:
-        hours = int(h_match.group(1))
+    try:
+        # extract hours
+        h_match = re.search(r'(\d+)\s*h', text)
+        if h_match:
+            hours = int(h_match.group(1))
+        
+        # extract minutes
+        m_match = re.search(r'(\d+)\s*min', text)
+        if m_match:
+            minutes = int(m_match.group(1))
+        
+        return hours + minutes/60.0
     
-    # extract minutes
-    m_match = re.search(r'(\d+)\s*min', text)
-    if m_match:
-        minutes = int(m_match.group(1))
+    except Exception as e:
+        print(f"⚠️ Skipping weird value '{t}' ({e})")
+        return None
     
-    return hours + minutes/60.0
 
 def read_data(file_path):
 
@@ -267,6 +277,10 @@ def read_data(file_path):
     # Now read properly
     df = pd.read_excel(file_path, 
                       header=header_row)
+    
+    # Removing group column if it exists
+    cols_to_drop = [col for col in df.columns if col.lower() == 'group']
+    df = df.drop(columns=cols_to_drop)
     
     # Clean column names
     df.columns = [str(col).replace('\n', ' ') for col in df.columns]
