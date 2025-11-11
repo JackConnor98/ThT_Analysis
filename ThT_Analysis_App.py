@@ -316,8 +316,8 @@ def read_data(file_path):
     # Create Well identifier
     df_tidy['Well'] = df_tidy['Well Row'].astype(str).str.strip() + df_tidy['Well Col'].astype(int).astype(str)
 
-    # Convert time to hours
-    if df_tidy[time_label].astype(str).str.contains(r'(h|min)', case=False).any():
+    # Convert time to hours   
+    if df_tidy[time_label].astype(str).str.contains(r'(?:h|min)', case=False).any():
         df_tidy[time_label] = df_tidy[time_label].apply(time_to_hours)
 
     # Identify flatliners to avoid fitting them
