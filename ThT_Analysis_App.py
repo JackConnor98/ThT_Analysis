@@ -121,11 +121,11 @@ def toggle_well(button, well_name):
         button.config(bg="lightblue")  # Select
 
 def finalize_selection():
-    global selections
+    global selections, time_label
     protein_name = protein_name_entry.get()
     protein_concentration = protein_concentration_entry.get()
     protein_colour = colour_entry.get()
-    
+
     current_data = {
         "protein": [protein_name],
         "conc": [protein_concentration],
@@ -148,6 +148,31 @@ def finalize_selection():
         if button.cget('bg') == 'lightblue':
             button.config(bg='orange')
 
+    # Add protein info to tidy data for the selected wells
+    global df_tidy
+    # Build a Well column in df_tidy
+    df_tidy["Well"] = df_tidy["Well Row"].astype(str).str.strip() + df_tidy["Well Col"].astype(int).astype(str)
+
+    # Add columns if they do not exist yet
+    for col in ["Protein", "Concentration"]:
+        if col not in df_tidy.columns:
+            df_tidy[col] = ""
+
+    # Assign metadata to only the selected wells
+    df_tidy.loc[df_tidy["Well"].isin(selected_wells), "Protein"] = protein_name
+    df_tidy.loc[df_tidy["Well"].isin(selected_wells), "Concentration"] = protein_concentration
+
+
+    # Create fit data for the selected wells
+    for well in selected_wells:
+        sub_df = df_tidy[df_tidy['Well'] == well]
+        if sub_df.empty:
+            continue
+        x = sub_df[time_label].values
+        y = sub_df['Fluorescence'].values
+        make_fit_data(well, x, y)
+
+    # Clear selection
     selected_wells.clear()
     update_dataframe_display()
 
@@ -174,12 +199,19 @@ def clear_last():
         if well_name in well_button_map:
             well_button_map[well_name].config(bg='lightgrey')
 
-     # Remove any rows from fit_data where "Well" matches a cleared well
-    fit_data = fit_data[~fit_data["Well"].isin(wells_to_clear)].reset_index(drop=True)
-
-    # If there are no rows left, reset fit_data entirely
-    if fit_data.empty:
+    # --- Safely handle fit_data even if it has no "Well" column ---
+    if isinstance(fit_data, pd.DataFrame) and "Well" in fit_data.columns:
+        fit_data = fit_data[~fit_data["Well"].isin(wells_to_clear)].reset_index(drop=True)
+    else:
+        # If fit_data exists but is empty or missing columns, ensure it is a clean DataFrame
         fit_data = pd.DataFrame()
+
+     # --- Clear protein info for these wells from df_tidy ---
+    global df_tidy
+    if "Protein" in df_tidy.columns:
+        df_tidy.loc[df_tidy["Well"].isin(wells_to_clear), "Protein"] = ""
+    if "Concentration" in df_tidy.columns:
+        df_tidy.loc[df_tidy["Well"].isin(wells_to_clear), "Concentration"] = ""
 
     selected_wells.clear()
     update_dataframe_display()
@@ -196,6 +228,13 @@ def clear_all():
     for button in well_buttons:
         if button.cget('bg') in ("lightblue", "orange"):
             button.config(bg='lightgrey')
+
+    # --- Clear ALL protein info from df_tidy ---
+    global df_tidy
+    for col in ["Protein", "Concentration"]:
+        if col in df_tidy.columns:
+            df_tidy[col] = ""
+
 
     selected_wells.clear()
 
@@ -258,8 +297,7 @@ def time_to_hours(t):
     
     except Exception as e:
         print(f"⚠️ Skipping weird value '{t}' ({e})")
-        return None
-    
+        return None    
 
 def read_data(file_path):
 
@@ -455,17 +493,21 @@ def fit_curve(well, x, y):
 
 def make_fit_data(well, x, y):
     global fit_data, flatliners
+    protein_name = protein_name_entry.get()
+    protein_concentration = protein_concentration_entry.get()
     
     equation = equation_var.get()
 
     if equation == "none":
             
         if fit_data.empty:
-            fit_data = pd.DataFrame(columns=["Well", "t50", "tmax", "tlag"])
+            fit_data = pd.DataFrame(columns=["Well", "Protein", "Concentration", "t50", "tmax", "tlag"])
+
         
         # Check if well is a flatliner
         if well in flatliners:
-            fit_data.loc[len(fit_data)] = [well, "NA", "NA", "NA"]
+            fit_data.loc[len(fit_data)] = [well, protein_name, protein_concentration, "NA", "NA", "NA"]
+
             
         else:
             if well not in fit_data["Well"].values:
@@ -474,15 +516,16 @@ def make_fit_data(well, x, y):
                 tmax = calculate_tmax(x, y)
                 tlag = calculate_tlag(x, y, t50)
                 
-                fit_data.loc[len(fit_data)] = [well, t50, tmax, tlag]
+                fit_data.loc[len(fit_data)] = [well, protein_name, protein_concentration, t50, tmax, tlag]
 
     if equation == "1":
         if fit_data.empty:
-            fit_data = pd.DataFrame(columns=["Well", "l", "k", "th", "y0", "yend", "t50", "tmax", "tlag"])
+            fit_data = pd.DataFrame(columns=["Well", "Protein", "Concentration", "l", "k", "th", "y0", "yend", "t50", "tmax", "tlag"])
+
 
         # Check if well is a flatliner
         if well in flatliners:
-            fit_data.loc[len(fit_data)] = [well, "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+            fit_data.loc[len(fit_data)] = [well, protein_name, protein_concentration, "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
         else:
             if well not in fit_data["Well"].values:
                 try:
@@ -499,11 +542,11 @@ def make_fit_data(well, x, y):
                     tmax = calculate_tmax(x_fit, y_fit)
                     tlag = calculate_tlag(x_fit, y_fit, t50)
 
-                    fit_data.loc[len(fit_data)] = [well, l, k, th, y0_fit, yend_fit, t50, tmax, tlag]
+                    fit_data.loc[len(fit_data)] = [well, protein_name, protein_concentration, l, k, th, y0_fit, yend_fit, t50, tmax, tlag]
 
                 except Exception as e:
                     print(f"Could not fit data for well {well}: {e}")
-                    fit_data.loc[len(fit_data)] = [well, "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+                    fit_data.loc[len(fit_data)] = [well, protein_name, protein_concentration, "NA", "NA", "NA", "NA", "NA", t50, tmax, tlag]
                         
     update_fit_parameters_display()
 
